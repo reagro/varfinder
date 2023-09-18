@@ -1,0 +1,3 @@
+importFrom(SNPRelate, snpgdsIBS)
+export(combine_rf, recode_rf, match_rf)
+

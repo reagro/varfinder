@@ -1,0 +1,13 @@
+Package: varfinder
+Description: Find varieties by matching SNPs from a sample to a reference. 
+Type: Package
+Title: find varieties
+Version: 0.0-1
+Date: 2023-09-17
+biocViews:
+Depends: SNPRelate
+Suggests: readxl
+Author: Jinliang Yang, Robert Hijmans
+Maintainer: <r.hijmans@gmail.com>
+License: GPL (>=3)
+
