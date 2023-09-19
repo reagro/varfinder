@@ -190,7 +190,6 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 
 		name <- paste0("IBS_cutoff_", i, "_best_match")
 		outlist[[name]] <- lout2
-		#iidx <- iidx + 1
 		
 		name2 <- paste0("IBS_cutoff_", i, "_all_match")
 		lout[[1]]$field_id <- gsub("^FLD_", "", lout[[1]]$field_id)
@@ -204,7 +203,7 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 								
 		nr <- as.data.frame(table(lout[[1]]$field_id))
 		
-		meta4 <- data.frame(Metric=c(paste0("Samples with match using IBS=",i), paste0("Avg number matches per sample using IBS=",i), paste0("Avg of IBS value with IBS=", i), paste0("SD of IBS value with IBS=", i)), Value=c(nrow(rp), mean(nr$Freq), rp[1], rp[2]) )
+		meta4 <- data.frame(Metric=c(paste0("Samples with match using IBS=",i), paste0("Avg number matches per sample using IBS=",i), paste0("Avg of IBS value with IBS=", i), paste0("SD of IBS value with IBS=", i)), Value=c(nrow(nr), mean(nr$Freq), rp[1], rp[2]) )
 		
 		meta <- rbind(meta123, meta4)
 	}
@@ -214,3 +213,16 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 	outlist
 }
 
+
+
+workflow_rf  <- function(ref_file, fld_file, country, crop, year, outdir=".", MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8, biallelic=TRUE, missflags="-") {
+  
+   ref <- data.table::fread(ref_file)
+   fld <- data.table::fread(fld_file)
+   crf <- varfinder::combine_rf(ref, fld)
+   rec <- varfinder::recode_rf(crf, biallelic=biallelic, missflags=missflags)
+   out <- varfinder::match_rf(rec, MAF_cutoff=MAF_cutoff, SNP_mr=SNP_mr, sample_mr=sample_mr, IBS_cutoff=IBS_cutoff)
+   fxl <- file.path(outdir, paste0(c(country, crop, year, "matches.xlsx"), collapse="_"))
+   writexl::write_xlsx(out, fxl)
+   fxl
+}
