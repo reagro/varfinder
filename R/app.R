@@ -282,5 +282,5 @@ doshiny <- function(...) {
 	shiny::shinyApp(ui, server, ...)
 }
 
-doshiny()
+#doshiny()
 
