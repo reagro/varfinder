@@ -106,7 +106,7 @@ describe_rf <- function(df0, d0, genofile, sm, MAF_cutoff, SNP_Missing_Rate, Sam
     Value=c(MAF_cutoff, SNP_Missing_Rate, nrow(d0), ".", refcnt, fldcnt, Sample_Missing_Rate, nrow(s0)))
   
   # calculate inbreeding coefficient and then heterozygocity
-	inb <- snpgdsIndInb(genofile, sample.id=row.names(s0), snp.id=d0$snp.id, autosome.only=FALSE,remove.monosnp=TRUE, maf=NaN,missing.rate=NaN, method=Inb_method, allele.freq=NULL, out.num.iter=TRUE,verbose=TRUE)
+	inb <- SNPRelate::snpgdsIndInb(genofile, sample.id=row.names(s0), snp.id=d0$snp.id, autosome.only=FALSE,remove.monosnp=TRUE, maf=NaN,missing.rate=NaN, method=Inb_method, allele.freq=NULL, out.num.iter=TRUE,verbose=TRUE)
   
   # normalize the range between 0 and 1
 	ic <- data.frame(sid=inb$sample.id, inb=inb$inbreeding)

@@ -1,14 +1,4 @@
 
-library(semantic.dashboard)
-library(htmltools)
-library(shiny)
-library(shinyjs)
-library(shiny.semantic)  # button
-#library(plotly)
-#library(shinyWidgets)
-
-library(varfinder)
-
 check_files <- function(reffile, surfile) {
 	if (is.null(reffile)) return("empty reference file")
 	if (is.null(surfile)) return("empty survey file")
@@ -21,8 +11,8 @@ doshiny <- function(...) {
 
   #### dataset list ###
 	datasetListUI <- function(id) {
-		ns <- NS(id)
-		uiOutput(ns('dataList'))
+		ns <- shiny::NS(id)
+		shiny::uiOutput(ns('dataList'))
 	}
 	datasetListServer <- function(id, md_list) {
 		moduleServer(id,
@@ -49,42 +39,42 @@ doshiny <- function(...) {
 #######################################################################
 
 
-	ui <- dashboardPage(
+	ui <- semantic.dashboard::dashboardPage(
 		title = "Variety Identification",
-		dashboardHeader(
+		semantic.dashboard::dashboardHeader(
 			color = "green",
 			menu_button_label = "",
 			class = "ui top attached header",
-			button(
+			shiny.semantic::button(
 				input_id = "close",
-				label = span(icon("close"), "Exit"),
+				label = shiny::span(shiny::icon("close"), "Exit"),
 				class = c("tiny", "ui red button", "compact ui button")
 			),
 		),
 
 		### Sidebar content ###
-		dashboardSidebar(
+		semantic.dashboard::dashboardSidebar(
 			size = "thin",
 			color = "green",
-			sidebarMenu(
-				menuItem(
-					text = span(icon("upload"), "Inputs"), tabName = "inputs_tab"),
-				menuItem(
-					text = span(icon("map"), "Combine"), tabName = "ref_check"
+			semantic.dashboard::sidebarMenu(
+				semantic.dashboard::menuItem(
+					text = shiny::span(shiny::icon("upload"), "Inputs"), tabName = "inputs_tab"),
+				semantic.dashboard::menuItem(
+					text = shiny::span(shiny::icon("map"), "Combine"), tabName = "ref_check"
 				),
-				menuItem(
-					text = span(icon("filter"), "Identification"), tabName = "ref_id"
+				semantic.dashboard::menuItem(
+					text = shiny::span(shiny::icon("filter"), "Identification"), tabName = "ref_id"
 				),
-				menuItem(
-					text = span(icon("eye"), "Visualization"), tabName = "visualization"
+				semantic.dashboard::menuItem(
+					text = shiny::span(shiny::icon("eye"), "Visualization"), tabName = "visualization"
 				)
 			)
 		),
 
 		## Body content
-		dashboardBody(
-			useShinyjs(),
-			extendShinyjs(text = "shinyjs.closeWindow = function() { window.close(); }",
+		semantic.dashboard::dashboardBody(
+			shinyjs::useShinyjs(),
+			shinyjs::extendShinyjs(text = "shinyjs.closeWindow = function() { window.close(); }",
 										functions = c("closeWindow")),
 			shinybusy::add_busy_spinner(spin = "fading-circle"),
 
@@ -95,10 +85,10 @@ doshiny <- function(...) {
 
 ############### INPUTS ################################################
 
-			tabItems(
-				tabItem(
+			semantic.dashboard::tabItems(
+				semantic.dashboard::tabItem(
 					tabName = "inputs_tab",
-					box(
+					semantic.dashboard::box(
 						title =	"Input files",
 						color = box_color,
 						width = 16,
@@ -134,51 +124,51 @@ doshiny <- function(...) {
 
 ############### REFERENCE CHECK #######################################
 
-				tabItem(
+				semantic.dashboard::tabItem(
 					tabName = "ref_check",
-					box(
+					semantic.dashboard::box(
 						title = "Combine input",
 						width = 16,
 						color = box_color,
 						collapsible = FALSE,
 						title_side = "top left",
-						button(
+						shiny.semantic::button(
 							input_id = "run_ref_check",
-							label = span(icon("play"), "RUN"),
+							label = shiny::span(shiny::icon("play"), "RUN"),
 							class = "ui green button"
 						)
 					),
-					fluidRow(
+					shiny::fluidRow(
 						id = "reference",
-						column(3,
-							verbatimTextOutput('rf_read'),
-							verbatimTextOutput('rf_combine'),
-							verbatimTextOutput('rf_recode')
+						shiny::column(3,
+							shiny::verbatimTextOutput('rf_read'),
+							shiny::verbatimTextOutput('rf_combine'),
+							shiny::verbatimTextOutput('rf_recode')
 						)
 					)
 				),
 
 ############### REFERENCE IDENTIFICATION ##############################
 
-				tabItem(
+				semantic.dashboard::tabItem(
 					tabName = "ref_id",
-					box(
+					semantic.dashboard::box(
 						title = "Identify varieties",
 						width = 16,
 						color = box_color,
 						collapsible = FALSE,
 						title_side = "top left",
-						br(),
-						button(
+						shiny::br(),
+						shiny.semantic::button(
 							input_id = "run_id",
-							label = span(icon("play"), "RUN"),
+							label = shiny::span(shiny::icon("play"), "RUN"),
 							class = "ui green button"
 						)
 					),
-					fluidRow(	
-						column(2,
-							verbatimTextOutput('rf_id'),
-							downloadButton('download',"Save to .csv"),
+					shiny::fluidRow(	
+						shiny::column(2,
+							shiny::verbatimTextOutput('rf_id'),
+							shiny::downloadButton('download',"Save to .csv"),
 						)
 					),
 					DT::dataTableOutput("res.ID"),
@@ -187,18 +177,18 @@ doshiny <- function(...) {
 
 ############### VISUALIZATION #########################################
 
-				tabItem(
+				semantic.dashboard::tabItem(
 					tabName = "visualization",
-					box(
+					semantic.dashboard::box(
 						title = "Map",
 						width = 16,
 						color = box_color,
 						collapsible = FALSE,
 						title_side = "top left",
 						datasetListUI(id = "dataList"),
-							button(
+							shiny.semantic::button(
 								input_id = "run_pca",
-								label = span(icon("play"), "RUN"),
+								label = shiny::span(shiny::icon("play"), "RUN"),
 								class = "ui green button"
 							),
 #						plotlyOutput("plot_pca",height="800px")
@@ -289,7 +279,7 @@ doshiny <- function(...) {
 		})
 	} # server end
 	
-	shinyApp(ui, server, ...)
+	shiny::shinyApp(ui, server, ...)
 }
 
 doshiny()
