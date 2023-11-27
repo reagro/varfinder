@@ -31,9 +31,6 @@ list
 }
 
 \examples{
-ref <- data.table::fread(ref_file)
-fld <- data.table::fread(field_file)
-
 fr <- system.file("ex/reference.csv", package="varfinder")
 fs <- system.file("ex/samples.csv", package="varfinder")
 dref <- data.table::fread(fr)
