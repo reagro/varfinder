@@ -7,6 +7,16 @@ library(shiny.semantic)  # button
 #library(plotly)
 #library(shinyWidgets)
 
+library(varfinder)
+
+check_files <- function(reffile, surfile) {
+	if (is.null(reffile)) return("empty reference file")
+	if (is.null(surfile)) return("empty survey file")
+	if (!file.exists(reffile)) return("reference file does not exist")
+	if (!file.exists(surfile)) return("survey file does not exist")
+	return("")
+}
+
 doshiny <- function(...) {
 
   #### dataset list ###
@@ -14,7 +24,6 @@ doshiny <- function(...) {
 		ns <- NS(id)
 		uiOutput(ns('dataList'))
 	}
-
 	datasetListServer <- function(id, md_list) {
 		moduleServer(id,
 			function(input, output, session) {
@@ -30,8 +39,7 @@ doshiny <- function(...) {
 	}
 
 	# maximum size of file to upload
-	options(shiny.maxRequestSize = 30 * 1024 ^ 2)
-
+	options(shiny.maxRequestSize = 50 * 1024 ^ 2)
 	box_color <- "blue"
 	box_height <- '100%'
 	input_class <- c("ui small icon input", "ui fluid icon input")
@@ -40,8 +48,9 @@ doshiny <- function(...) {
 ############### UI ####################################################
 #######################################################################
 
+
 	ui <- dashboardPage(
-		title = "Varietal Identification",
+		title = "Variety Identification",
 		dashboardHeader(
 			color = "green",
 			menu_button_label = "",
@@ -64,12 +73,10 @@ doshiny <- function(...) {
 					text = span(icon("map"), "Combine"), tabName = "ref_check"
 				),
 				menuItem(
-					text = span(icon("filter"), "Identification"),
-					tabName = "ref_id"
+					text = span(icon("filter"), "Identification"), tabName = "ref_id"
 				),
 				menuItem(
-					text = span(icon("eye"), "Visualisation"),
-					tabName = "visualization"
+					text = span(icon("eye"), "Visualization"), tabName = "visualization"
 				)
 			)
 		),
@@ -79,6 +86,12 @@ doshiny <- function(...) {
 			useShinyjs(),
 			extendShinyjs(text = "shinyjs.closeWindow = function() { window.close(); }",
 										functions = c("closeWindow")),
+			shinybusy::add_busy_spinner(spin = "fading-circle"),
+
+			shinybusy::add_busy_gif(
+			  src = "https://jeroen.github.io/images/banana.gif",
+			  height = 70, width = 70
+			),
 
 ############### INPUTS ################################################
 
@@ -130,16 +143,18 @@ doshiny <- function(...) {
 						collapsible = FALSE,
 						title_side = "top left",
 						button(
-							input_id = "run_check",
+							input_id = "run_ref_check",
 							label = span(icon("play"), "RUN"),
 							class = "ui green button"
 						)
 					),
 					fluidRow(
-						id = "referenceValidationBody",
-						title = NULL,
-						hidden = FALSE,
-						fluidRow(h3("Hello!"))
+						id = "reference",
+						column(3,
+							verbatimTextOutput('rf_read'),
+							verbatimTextOutput('rf_combine'),
+							verbatimTextOutput('rf_recode')
+						)
 					)
 				),
 
@@ -158,19 +173,16 @@ doshiny <- function(...) {
 							input_id = "run_id",
 							label = span(icon("play"), "RUN"),
 							class = "ui green button"
-						),
-						br(),
-						
-						fluidRow(	
-							column(1,
-								br(),
-								downloadButton('download',"Save results table to csv file"),
-								br()
-							)
-						),
-						DT::dataTableOutput("res.ID"),
+						)
+					),
+					fluidRow(	
+						column(2,
+							verbatimTextOutput('rf_id'),
+							downloadButton('download',"Save to .csv"),
+						)
+					),
+					DT::dataTableOutput("res.ID"),
 						style = "height:800px; overflow-y: scroll;overflow-x: scroll;"
-					)
 				),
 
 ############### VISUALIZATION #########################################
@@ -203,11 +215,8 @@ doshiny <- function(...) {
 	server <- function(input, output, session) {
 
 		options(shiny.maxRequestSize=50*1024^2)
-		
-		hammingCoReactive <- reactiveVal(NULL)
-		ID_res <- reactiveVal(NULL)
 
-		### Close button ###
+		# Close button
 		observeEvent(input$close, {
 		  lapply(names(resourcePaths()), removeResourcePath)
 		  js$closeWindow()
@@ -216,31 +225,63 @@ doshiny <- function(...) {
 
 ############### REFERENCE CHECK #######################################
 
-		observeEvent(input$run_check, {
-			print("run_check")		
-			showModal(modalDialog(
-				title = "run_check",
-				"This is an important message!"
-			))
-		
+		observeEvent(input$run_ref_check, {
+
+			reffile = input$reference_file$datapath
+			surfile = input$survey_file$datapath
+			check = check_files(reffile, surfile)
+			if (check != "") {
+				output$rf_read <- renderText({check})
+				return(NULL)
+			}
+
+			ref <- try(data.table::fread(reffile))
+			if (inherits(ref, "try-error")) stop("cannot read reference file")
+			fld <- try(data.table::fread(surfile))
+			if (inherits(fld, "try-error")) stop("cannot read reference file")
+
+			refname = input$reference_file$name
+			surname = input$survey_file$name		
+			output$rf_read <- renderText({
+				paste0("reference: ", refname, ", ", nrow(ref), " records\n", 
+					   "survey   : ", surname, ", ", nrow(fld), " records\n\n")
+			})		
+			crf <- varfinder::combine_rf(ref, fld)
+			output$rf_combine <- renderText({
+				paste0("combined : ", nrow(crf), " records\n\n")
+			})		
+			recoded <<- varfinder::recode_rf(crf, biallelic=TRUE, missflags="-")
+			output$rf_recode <- renderText({
+				paste0("recoded successfully")
+			})		
 		})
 ############### REFERENCE IDENTIFICATION ##############################
 
 		observeEvent(input$run_id, {
-			print("run_id")		
-			showModal(modalDialog(
-				title = "run_id",
-				"This is an important message!"
-			))
 
+			if (!exists("recoded")) {
+				output$rf_id <- renderText({
+					"input has not been generated (go back one tab)"
+				})
+			
+			} else {
+				out <- try(varfinder::match_rf(recoded, MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8))
+
+				output$rf_id <- renderText({
+					paste0(nrow(out$IBS_cutoff_0.8_best_match))
+				})		
+
+				DT::renderDataTable({datatable(out$IBS_cutoff_0.8_best_match)})
+
+				output$download <- downloadHandler(
+					filename = function() {"match_results.csv"},
+					content = function(fname) {
+						write.csv(out$IBS_cutoff_0.8_best_match, fname)
+					}
+				)
+			}
 		})
 
-		output$download <- downloadHandler(
-			filename = function(){"match_results.csv"},
-			content = function(fname) {
-				write.csv(res_ID$res_summary, fname)
-			}
-		)
 
     ############### VISUALIZATION #########################################
 		observeEvent(input$run_pca, {
