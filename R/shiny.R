@@ -1,13 +1,15 @@
 
-check_files <- function(reffile, surfile) {
+check_files <- function(reffile, surfile, crdfile) {
 	if (is.null(reffile)) return("empty reference file")
 	if (is.null(surfile)) return("empty survey file")
 	if (!file.exists(reffile)) return("reference file does not exist")
 	if (!file.exists(surfile)) return("survey file does not exist")
+	if ((!is.null(crdfile)) && (!file.exists(crdfile))) return("coordinates file does not exist")
+
 	return("")
 }
 
-doshiny <- function(...) {
+shiny_rf <- function(...) {
 
   #### dataset list ###
 	datasetListUI <- function(id) {
@@ -112,7 +114,7 @@ doshiny <- function(...) {
 							accept = "csv"
 						),
 						shiny.semantic::fileInput(
-							inputId = "coordinates_file",
+							inputId = "coords_file",
 							label = "Coordinates file",
 							buttonLabel = "Browse",
 							type = input_class,
@@ -153,27 +155,36 @@ doshiny <- function(...) {
 				semantic.dashboard::tabItem(
 					tabName = "ref_id",
 					semantic.dashboard::box(
-						title = "Identify varieties",
+						title = "Varietal Identification",
 						width = 16,
 						color = box_color,
 						collapsible = FALSE,
 						title_side = "top left",
-						shiny::br(),
-						shiny.semantic::button(
-							input_id = "run_id",
-							label = shiny::span(shiny::icon("play"), "RUN"),
-							class = "ui green button"
-						)
-					),
-					shiny::fluidRow(	
-						shiny::column(2,
-							shiny::verbatimTextOutput('rf_id'),
-							shiny::downloadButton('download',"Save to .csv"),
-						)
-					),
-					DT::dataTableOutput("res.ID"),
+						shiny::fluidRow(
+							shiny::column(3,
+								shiny::numericInput(
+									inputId = "ibs",
+									label = "IBS cut-off",
+									value = .8,
+									min = 0.1,
+									max = 0.9
+								),
+								shiny::br(),
+								shiny.semantic::button(
+									input_id = "run_id",
+									label = shiny::span(shiny::icon("play"), "RUN"),
+									class = "ui green button"
+								),
+								shiny::br(),
+								shiny::downloadButton('download',"Save to .csv"),
+								shiny::br()
+							)
+						),
+						DT::dataTableOutput("res.ID"),
 						style = "height:800px; overflow-y: scroll;overflow-x: scroll;"
+					)
 				),
+
 
 ############### VISUALIZATION #########################################
 
@@ -185,13 +196,17 @@ doshiny <- function(...) {
 						color = box_color,
 						collapsible = FALSE,
 						title_side = "top left",
-						datasetListUI(id = "dataList"),
+						shiny.semantic::flow_layout(
 							shiny.semantic::button(
-								input_id = "run_pca",
+								input_id = "make_map",
 								label = shiny::span(shiny::icon("play"), "RUN"),
 								class = "ui green button"
 							),
-#						plotlyOutput("plot_pca",height="800px")
+							shiny::selectInput("variety", "variety:", c("none" = "none"))
+						),
+						shiny::p(),
+						leaflet::leafletOutput("mymap"),
+						shiny::p()
 					)
 				)
 			)
@@ -205,6 +220,7 @@ doshiny <- function(...) {
 	server <- function(input, output, session) {
 
 		options(shiny.maxRequestSize=50*1024^2)
+		ID_res <- reactiveVal(NULL)
 
 		# Close button
 		observeEvent(input$close, {
@@ -219,7 +235,8 @@ doshiny <- function(...) {
 
 			reffile = input$reference_file$datapath
 			surfile = input$survey_file$datapath
-			check = check_files(reffile, surfile)
+			crdfile = input$coords_file$datapath
+			check = check_files(reffile, surfile, crdfile)
 			if (check != "") {
 				output$rf_read <- renderText({check})
 				return(NULL)
@@ -229,12 +246,20 @@ doshiny <- function(...) {
 			if (inherits(ref, "try-error")) stop("cannot read reference file")
 			fld <- try(data.table::fread(surfile))
 			if (inherits(fld, "try-error")) stop("cannot read reference file")
+			if (!is.null(crdfile)) {
+				crd <<- try(na.omit(data.frame(data.table::fread(crdfile))))
+			} else {
+				crd <<- NULL
+			}
 
 			refname = input$reference_file$name
 			surname = input$survey_file$name		
+			crdname = input$coords_file$name
+			pcrd = ifelse(is.null(crdname), "not provided", crdname)
 			output$rf_read <- renderText({
-				paste0("reference: ", refname, ", ", nrow(ref), " records\n", 
-					   "survey   : ", surname, ", ", nrow(fld), " records\n\n")
+				paste0("reference  : ", refname, ", ", nrow(ref), " records\n", 
+					   "survey     : ", surname, ", ", nrow(fld), " records\n",
+					   "coordinates: ", pcrd, ", ", max(0, nrow(crd)), " records\n\n")
 			})		
 			crf <- varfinder::combine_rf(ref, fld)
 			output$rf_combine <- renderText({
@@ -244,6 +269,7 @@ doshiny <- function(...) {
 			output$rf_recode <- renderText({
 				paste0("recoded successfully")
 			})		
+
 		})
 ############### REFERENCE IDENTIFICATION ##############################
 
@@ -255,32 +281,75 @@ doshiny <- function(...) {
 				})
 			
 			} else {
-				out <- try(varfinder::match_rf(recoded, MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8))
+				
+				IBS_cutoff = input$ibs
+				ibsvar <- paste0("IBS_cutoff_", IBS_cutoff, "_best_match")
+				
+				res_ID <<- try(varfinder::match_rf(recoded, 
+					MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, 
+					IBS_cutoff=IBS_cutoff))$IBS_cutoff_0.8_best_match
+					
+				ID_res(res_ID)
 
-				output$rf_id <- renderText({
-					paste0(nrow(out$IBS_cutoff_0.8_best_match))
-				})		
-
-				DT::renderDataTable({datatable(out$IBS_cutoff_0.8_best_match)})
+				res_ID$IBS <- round(res_ID$IBS, 3)
+				res_ID$Sample_SNP_mr <- round(res_ID$Sample_SNP_mr, 3)
+				
+				output$res.ID <- DT::renderDataTable({DT::datatable(res_ID)})
 
 				output$download <- downloadHandler(
 					filename = function() {"match_results.csv"},
 					content = function(fname) {
-						write.csv(out$IBS_cutoff_0.8_best_match, fname)
+						write.csv(res_ID$IBS_cutoff_0.8_best_match, fname)
 					}
 				)
+				
 			}
 		})
 
 
     ############### VISUALIZATION #########################################
-		observeEvent(input$run_pca, {
-			print("run_pca")		
+		
+		output$mymap <- leaflet::renderLeaflet({
+			leaflet::leaflet() |> leaflet::setView(0, 0, zoom = 3) |>
+			  leaflet::addProviderTiles("OpenStreetMap",
+				options = leaflet::providerTileOptions(noWrap = TRUE)
+			  ) # |> addMarkers(data = points())
 		})
+
+		drawPoints <- function(variety) {
+			if (!exists("crd")) return(NULL)
+			points <- crd[ , c("lon", "lat")]
+			if (variety == "all varieties") {
+				leaflet::leafletProxy("mymap", data = points) |>
+					leaflet::clearShapes() |>
+					leaflet::addCircles(radius = 15, weight = 10, color = "red")				
+			} else {
+				leaflet::leafletProxy("mymap", data = points) |>
+					leaflet::clearShapes() |>
+					leaflet::addCircles(radius = 10, weight = 6, color = "gray")				
+				points <- crd[crd[,1] == variety, c("lon", "lat")]
+				leaflet::leafletProxy("mymap", data = points) |>
+					leaflet::addCircles(radius = 15, weight = 10, color = "red")	
+			}
+		}
+		
+		observeEvent(input$make_map, {
+			uvars <- c("all varieties", unique(crd[,1]))
+			shiny::updateSelectInput(session, "variety",
+				label = "variety",
+				choices = uvars,
+				selected = uvars[1]
+			)
+			drawPoints(input$variety)
+		})
+
+		observeEvent(input$variety, {
+			drawPoints(input$variety)
+		})
+
 	} # server end
 	
 	shiny::shinyApp(ui, server, ...)
 }
 
-#doshiny()
 

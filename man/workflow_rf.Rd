@@ -12,7 +12,9 @@ High level function that reads raw input files, and runs \code{\link{combine_rf}
 
 
 \usage{
-workflow_rf(ref_file, fld_file, country, crop, year="", outdir=".", MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8, biallelic=TRUE, missflags="-")
+workflow_rf(ref_file, fld_file, country, crop, year="", outdir=".", 
+		MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8, 
+		biallelic=TRUE, missflags="-")
 }
  
 \arguments{

@@ -32,11 +32,11 @@ list
 
 \examples{
 fr <- system.file("ex/reference.csv", package="varfinder")
-fs <- system.file("ex/samples.csv", package="varfinder")
+fs <- system.file("ex/survey.csv", package="varfinder")
 dref <- data.table::fread(fr)
 dsmp <- data.table::fread(fs)
 comb <- combine_rf(dref, dsmp)
-rec <- recode_rf(x, biallelic=TRUE, missflags="-")
+rec <- recode_rf(comb, biallelic=TRUE, missflags="-")
 ibs <- match_rf(rec, MAF_cutoff=0.05, SNP_mr=0.2, Sample_mr=0.2, IBS_cutoff=.8)
 }
 

@@ -158,7 +158,8 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
   # calculate pair-wise IBS
 	ibs <- SNPRelate::snpgdsIBS(genofile, num.thread=cpus, autosome.only=FALSE, maf= MAF_cutoff, missing.rate=SNP_mr)
 	out <- ibs[[3]]
-	dimnames(out) <- dimnames(out) <- list(names(d)[-c(1:3)], names(d)[-c(1:3)])
+	rownames(out) <- colnames(out) <- ibs$sample.id
+
 	xy <- t(combn(colnames(out), 2))
   
   # convert to data.frame
@@ -209,7 +210,7 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 	}
 	outlist[["metadata"]] <- meta
 	outlist[["snpinfo"]] <- snpmr
-  
+	outlist[["distance"]] <- out
 	outlist
 }
 
