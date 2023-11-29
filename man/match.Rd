@@ -12,7 +12,7 @@ Describe
 
 
 \usage{
-match_rf(d, MAF_cutoff, SNP_Missing_Rate, Sample_Missing_Rate, IBS_cutoff, 
+match_rf(d, MAF_cutoff, SNP_mr, sample_mr, IBS_cutoff, 
 			inb_method="mom.visscher", cpus=1)
 }
  
@@ -37,7 +37,7 @@ dref <- data.table::fread(fr)
 dsmp <- data.table::fread(fs)
 comb <- combine_rf(dref, dsmp)
 rec <- recode_rf(comb, biallelic=TRUE, missflags="-")
-ibs <- match_rf(rec, MAF_cutoff=0.05, SNP_mr=0.2, Sample_mr=0.2, IBS_cutoff=.8)
+ibs <- match_rf(rec, MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8)
 }
 
 

@@ -19,7 +19,7 @@ recode_rf(d, biallelic=TRUE, missflags="-")
 \arguments{
 \item{d}{data.frame with combined ref and fld data created with \code{\link{combine_rf}}}
 \item{biallelic}{logical}
-\item{missflag}{character}
+\item{missflags}{character}
 }
 
 \value{

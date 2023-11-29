@@ -11,16 +11,19 @@ check_files <- function(reffile, surfile, crdfile) {
 
 shiny_rf <- function(...) {
 
+	# globals
+	recoded <- crd <- js <- NULL
+
   #### dataset list ###
 	datasetListUI <- function(id) {
 		ns <- shiny::NS(id)
 		shiny::uiOutput(ns('dataList'))
 	}
 	datasetListServer <- function(id, md_list) {
-		moduleServer(id,
+		shiny::moduleServer(id,
 			function(input, output, session) {
-				output$dataList = renderUI({
-					selectizeInput(
+				output$dataList = shiny::renderUI({
+					shiny::selectizeInput(
 						inputId = 'dataList',
 						label = 'Select a sample',
 						choices = md_list,
@@ -220,25 +223,25 @@ shiny_rf <- function(...) {
 	server <- function(input, output, session) {
 
 		options(shiny.maxRequestSize=50*1024^2)
-		ID_res <- reactiveVal(NULL)
+		ID_res <- shiny::reactiveVal(NULL)
 
 		# Close button
-		observeEvent(input$close, {
-		  lapply(names(resourcePaths()), removeResourcePath)
+		shiny::observeEvent(input$close, {
+		  lapply(names(shiny::resourcePaths()), shiny::removeResourcePath)
 		  js$closeWindow()
-		  stopApp()
+		  shiny::stopApp()
 		})
 
 ############### REFERENCE CHECK #######################################
 
-		observeEvent(input$run_ref_check, {
+		shiny::observeEvent(input$run_ref_check, {
 
 			reffile = input$reference_file$datapath
 			surfile = input$survey_file$datapath
 			crdfile = input$coords_file$datapath
 			check = check_files(reffile, surfile, crdfile)
 			if (check != "") {
-				output$rf_read <- renderText({check})
+				output$rf_read <- shiny::renderText({check})
 				return(NULL)
 			}
 
@@ -247,7 +250,7 @@ shiny_rf <- function(...) {
 			fld <- try(data.table::fread(surfile))
 			if (inherits(fld, "try-error")) stop("cannot read reference file")
 			if (!is.null(crdfile)) {
-				crd <<- try(na.omit(data.frame(data.table::fread(crdfile))))
+				crd <<- try(stats::na.omit(data.frame(data.table::fread(crdfile))))
 			} else {
 				crd <<- NULL
 			}
@@ -256,27 +259,27 @@ shiny_rf <- function(...) {
 			surname = input$survey_file$name		
 			crdname = input$coords_file$name
 			pcrd = ifelse(is.null(crdname), "not provided", crdname)
-			output$rf_read <- renderText({
+			output$rf_read <- shiny::renderText({
 				paste0("reference  : ", refname, ", ", nrow(ref), " records\n", 
 					   "survey     : ", surname, ", ", nrow(fld), " records\n",
 					   "coordinates: ", pcrd, ", ", max(0, nrow(crd)), " records\n\n")
 			})		
 			crf <- varfinder::combine_rf(ref, fld)
-			output$rf_combine <- renderText({
+			output$rf_combine <- shiny::renderText({
 				paste0("combined : ", nrow(crf), " records\n\n")
 			})		
 			recoded <<- varfinder::recode_rf(crf, biallelic=TRUE, missflags="-")
-			output$rf_recode <- renderText({
+			output$rf_recode <- shiny::renderText({
 				paste0("recoded successfully")
 			})		
 
 		})
 ############### REFERENCE IDENTIFICATION ##############################
 
-		observeEvent(input$run_id, {
+		shiny::observeEvent(input$run_id, {
 
 			if (!exists("recoded")) {
-				output$rf_id <- renderText({
+				output$rf_id <- shiny::renderText({
 					"input has not been generated (go back one tab)"
 				})
 			
@@ -296,10 +299,10 @@ shiny_rf <- function(...) {
 				
 				output$res.ID <- DT::renderDataTable({DT::datatable(res_ID)})
 
-				output$download <- downloadHandler(
+				output$download <- shiny::downloadHandler(
 					filename = function() {"match_results.csv"},
 					content = function(fname) {
-						write.csv(res_ID$IBS_cutoff_0.8_best_match, fname)
+						utils::write.csv(res_ID$IBS_cutoff_0.8_best_match, fname)
 					}
 				)
 				
@@ -333,7 +336,7 @@ shiny_rf <- function(...) {
 			}
 		}
 		
-		observeEvent(input$make_map, {
+		shiny::observeEvent(input$make_map, {
 			uvars <- c("all varieties", unique(crd[,1]))
 			shiny::updateSelectInput(session, "variety",
 				label = "variety",
@@ -343,7 +346,7 @@ shiny_rf <- function(...) {
 			drawPoints(input$variety)
 		})
 
-		observeEvent(input$variety, {
+		shiny::observeEvent(input$variety, {
 			drawPoints(input$variety)
 		})
 

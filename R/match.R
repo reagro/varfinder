@@ -28,27 +28,29 @@ het_rate <- function(x){
 }
 
 
-combine_rf <- function(r, f) {
+combine_rf <- function(ref, fld) {
   
-	if (nrow(r) != nrow(f)) {
-		stop(sprintf("ref has %s rows and field has %s rows",  nrow(r), ncol(f)))
+	if (nrow(ref) != nrow(fld)) {
+		stop(sprintf("ref has %s rows and field has %s rows",  nrow(ref), ncol(fld)))
 	}
-	names(r)[1:3] <- c("SNPID", "Chr", "Pos")
-	names(r)[-c(1:3)] <- paste0("REF_", names(r)[-c(1:3)])
+	names(ref)[1:3] <- c("SNPID", "Chr", "Pos")
+	names(ref)[-c(1:3)] <- paste0("REF_", names(ref)[-c(1:3)])
 
-	f <- f[, -c(2:3)]
-	names(f)[1] <- "SNPID"
-	names(f)[-1] <- paste0("FLD_", names(f)[-1])
+	fld <- fld[, -c(2:3)]
+	names(fld)[1] <- "SNPID"
+	names(fld)[-1] <- paste0("FLD_", names(fld)[-1])
   
-	i <- c(f[,1] %in% r[,1], r[,1] %in% f[,1])
+	i <- c(fld[,1] %in% ref[,1], ref[,1] %in% fld[,1])
+  	out <- merge(ref, fld, by="SNPID")
+
 	if (!all(i)) {
 		warning("not a perfect match between field and reference markers") 
 		meta1 <- data.frame(Metric=c("Reference markers", "Sample markers",  "Common markers"), 
-                      Value=c(nrow(r), nrow(f), nrow(d)))
+                      Value=c(nrow(ref), nrow(fld), nrow(out)))
 		print(meta1)
 	}
 
-  	merge(r, f, by="SNPID")
+	out
 }
 
 
@@ -121,9 +123,10 @@ describe_rf <- function(df0, d0, genofile, sm, MAF_cutoff, SNP_Missing_Rate, Sam
 	ic <- merge(ic, h1, by="sid")
 	
 	meta3 <- data.frame(Metric=c("Sample Het Avg", "Sample Het SD", "Sample Het Max", "Sample Het Min"), 
-                      Value=c(mean(ic$h), sd(ic$h), max(ic$h), min(ic$h) ))
+                      Value=c(mean(ic$h), stats::sd(ic$h), max(ic$h), min(ic$h) ))
   	rbind(meta1, meta2, meta3)
 }
+
 
 match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr, 
 			IBS_cutoff, inb_method = "mom.visscher", cpus=1){
@@ -150,7 +153,7 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
   # calculate SNP maf and missing rate
 	frq <- SNPRelate::snpgdsSNPRateFreq(genofile, sample.id=NULL, snp.id=NULL, with.id=TRUE)
 	snpmr <- data.frame(snpid=frq$snp.id, maf=frq$MinorFreq, mr=frq$MissingRate)
-	d0 <- subset(snpmr, maf >= MAF_cutoff & mr <= SNP_mr)
+	d0 <- snpmr[snpmr$maf >= MAF_cutoff & snpmr$mr <= SNP_mr, ]
 	sm <- SNPRelate::snpgdsSampMissRate(genofile, sample.id=field.id, snp.id=d0$snpid, with.id=TRUE)
 
 	meta123 <- describe_rf(d, d0, genofile, sm, MAF_cutoff, SNP_mr, sample_mr, inb_method)
@@ -160,7 +163,7 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 	out <- ibs[[3]]
 	rownames(out) <- colnames(out) <- ibs$sample.id
 
-	xy <- t(combn(colnames(out), 2))
+	xy <- t(utils::combn(colnames(out), 2))
   
   # convert to data.frame
 	D <- data.frame(xy, dist=out[xy])
@@ -172,7 +175,7 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 	D[D$ref %in% ref.id, ]$type1 <- "ref"
 	D[D$field %in% field.id, ]$type2 <- "field"
   
-	D <- subset(D, type1 == "ref" & type2 =="field")
+	D <- D[D$type1 == "ref" & D$type2 =="field", ]
   
 	names(D)[1:3] <- c("FID1", "FID2", "IBS")
   
@@ -198,8 +201,8 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 		outlist[[name2]] <- lout[[1]]
 
 		
-		rp <- aggregate(lout[[1]]$IBS, lout[[1]][, "field_id", drop=FALSE], 
-			function(i) c(mean(i, na.rm=TRUE), sd(i, na.rm=TRUE)))
+		rp <- stats::aggregate(lout[[1]]$IBS, lout[[1]][, "field_id", drop=FALSE], 
+			function(i) c(mean(i, na.rm=TRUE), stats::sd(i, na.rm=TRUE)))
 		rp <- apply(rp[,2], 2, mean, na.rm=TRUE)
 								
 		nr <- as.data.frame(table(lout[[1]]$field_id))
@@ -216,13 +219,13 @@ match_rf <- function(d, MAF_cutoff, SNP_mr, sample_mr,
 
 
 
-workflow_rf  <- function(ref_file, fld_file, country, crop, year, outdir=".", MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8, biallelic=TRUE, missflags="-") {
+workflow_rf  <- function(ref_file, fld_file, country, crop, year, outdir=".", MAF_cutoff=0.05, SNP_mr=0.2, sample_mr=0.2, IBS_cutoff=.8, biallelic=TRUE, missflags="-", inb_method = "mom.visscher", cpus=1) {
   
    ref <- data.table::fread(ref_file)
    fld <- data.table::fread(fld_file)
    crf <- varfinder::combine_rf(ref, fld)
    rec <- varfinder::recode_rf(crf, biallelic=biallelic, missflags=missflags)
-   out <- varfinder::match_rf(rec, MAF_cutoff=MAF_cutoff, SNP_mr=SNP_mr, sample_mr=sample_mr, IBS_cutoff=IBS_cutoff)
+   out <- varfinder::match_rf(rec, MAF_cutoff=MAF_cutoff, SNP_mr=SNP_mr, sample_mr=sample_mr, IBS_cutoff=IBS_cutoff, inb_method =inb_method, cpus=cpus)
    fxl <- file.path(outdir, paste0(c(country, crop, year, "matches.xlsx"), collapse="_"))
    writexl::write_xlsx(out, fxl)
    fxl
